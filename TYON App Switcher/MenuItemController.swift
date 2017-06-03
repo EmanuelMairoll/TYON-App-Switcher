@@ -58,6 +58,7 @@ class MenuItemController: NSObject {
     func mouseConnectionChangedListener(){
         if (MouseInterface.isConnected()){
             statusItem.length = 24
+            frontmostAppChangedListener()
         }else{
             statusItem.length = 0
             popover.performClose(nil)
