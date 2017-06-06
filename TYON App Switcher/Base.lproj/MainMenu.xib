@@ -14,6 +14,6 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <customObject id="Voe-Tx-rLC" customClass="AppDelegate" customModule="TYON_App_Switcher" customModuleProvider="target"/>
         <customObject id="YLy-65-1bz" customClass="NSFontManager"/>
-        <customObject id="RLl-O0-Pgi" userLabel="MenuItemController" customClass="MenuItemController" customModule="TYON_App_Switcher" customModuleProvider="target"/>
+        <customObject id="wQe-c7-o3E" customClass="MainController" customModule="TYON_App_Switcher" customModuleProvider="target"/>
     </objects>
 </document>

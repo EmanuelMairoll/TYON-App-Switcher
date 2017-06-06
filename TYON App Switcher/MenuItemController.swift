@@ -18,25 +18,11 @@ class MenuItemController: NSObject {
         super.init()
         
         Applications.load()
-
-        MouseInterface.startListener(#selector(self.mouseConnectionChangedListener), withTarget: self)
-        mouseConnectionChangedListener()
-        
-        NSWorkspace.shared().notificationCenter.addObserver(self, selector: #selector(self.frontmostAppChangedListener), name: NSNotification.Name.NSWorkspaceDidActivateApplication, object: nil)
-        frontmostAppChangedListener()
         
         statusItem.button!.action = #selector(self.menuItemClicked)
         statusItem.button!.target = self
         
         popover.contentViewController = PopupViewController(nibName: "Popup", bundle: nil)
-    }
-    
-    func frontmostAppChangedListener(){
-        if let modeIndex = Applications.getMode(application: Applications.frontmost()){
-            Applications.setSelectedIndex(index: modeIndex)
-            setTitle(index: modeIndex + 1)
-            MouseInterface.send(Int8(modeIndex))
-        }
     }
     
     func menuItemClicked(sender: AnyObject?){
@@ -55,14 +41,13 @@ class MenuItemController: NSObject {
         }
     }
     
-    func mouseConnectionChangedListener(){
-        if (MouseInterface.isConnected()){
-            statusItem.length = 24
-            frontmostAppChangedListener()
-        }else{
-            statusItem.length = 0
-            popover.performClose(nil)
-        }
+    func onConnectMouse(){
+        statusItem.length = 24
+    }
+    
+    func onDisconnectMouse(){
+        statusItem.length = 0
+        popover.performClose(nil)
     }
     
     func setTitle(index:Int){

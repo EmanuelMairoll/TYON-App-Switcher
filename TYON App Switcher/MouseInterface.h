@@ -11,8 +11,8 @@
 
 @interface MouseInterface : NSObject
 
-+ (void)startListener: (SEL)updateSelector withTarget:(NSObject*)updateTarget;
-+ (void)send: (char)mode;
++ (void)startListenerWithConnectionSel: (SEL)con withReceiveSel:(SEL)rec withTarget:(NSObject*)updateTarget;
++ (void)sendMode: (char)mode;
 + (BOOL)isConnected;
 
 @end

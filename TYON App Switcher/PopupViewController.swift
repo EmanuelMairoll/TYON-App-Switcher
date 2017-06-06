@@ -22,6 +22,7 @@ class PopupViewController: NSViewController {
     @IBAction func indexChanged(_ sender: NSSegmentedControl){
         Applications.setDrawnIndex(index: modeSelection.selectedSegment)
         applicationTable.reloadData()
+        MouseInterface.sendMode(Int8(modeSelection.selectedSegment))
     }
     
     @IBAction func quitButtonClicked(_ sender: NSButton) {

@@ -15,79 +15,75 @@
 
 int vendorId = 0x1e7d27;
 int productId = 0x2e4a27;
-int primaryUsuageId = 0x227;
-bool connected = false;
+int primaryUsuageIdMouse = 0x227;
+int primaryUsuageIdGeneric = 0x27;
 
 SEL updateMethod;
+SEL receiveMethod;
 NSObject *target;
 
-IOHIDDeviceRef mouse;
+IOHIDDeviceRef mouseItf;
+IOHIDDeviceRef genericItf;
 
-+ (void)startListener: (SEL)updateSelector withTarget:(NSObject*)updateTarget
+bool mouseItfConnected = false;
+
++ (void)startListenerWithConnectionSel: (SEL)con withReceiveSel:(SEL)rec withTarget:(NSObject*)updateTarget
 {
-    updateMethod = updateSelector;
+    updateMethod = con;
+    receiveMethod = rec;
     target = updateTarget;
     
-    IOHIDManagerRef HIDManager = IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
+    IOHIDManagerRef HIDManagerMouse = IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
+    CFMutableDictionaryRef matchDictMouse = CFDictionaryCreateMutable(kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(matchDictMouse, CFSTR(kIOHIDVendorIDKey), vendorId);
+    CFDictionarySetValue(matchDictMouse, CFSTR(kIOHIDProductIDKey), productId);
+    CFDictionarySetValue(matchDictMouse, CFSTR(kIOHIDPrimaryUsageKey), primaryUsuageIdMouse);
+    IOHIDManagerSetDeviceMatching(HIDManagerMouse, matchDictMouse);
     
-    CFMutableDictionaryRef matchDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(matchDict, CFSTR(kIOHIDVendorIDKey), vendorId);
-    CFDictionarySetValue(matchDict, CFSTR(kIOHIDProductIDKey), productId);
-    CFDictionarySetValue(matchDict, CFSTR(kIOHIDPrimaryUsageKey), primaryUsuageId);
-    IOHIDManagerSetDeviceMatching(HIDManager, matchDict);
+    IOHIDManagerRegisterDeviceMatchingCallback(HIDManagerMouse, &onMouseItfConnected, NULL);
+    IOHIDManagerRegisterDeviceRemovalCallback(HIDManagerMouse, &onMouseItfRemoved, NULL);
+    IOHIDManagerScheduleWithRunLoop(HIDManagerMouse, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
+    IOHIDManagerOpen(HIDManagerMouse, kIOHIDOptionsTypeNone);
+
+    IOHIDManagerRef HIDManagerGeneric = IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
+    CFMutableDictionaryRef matchDictGeneric = CFDictionaryCreateMutable(kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(matchDictGeneric, CFSTR(kIOHIDVendorIDKey), vendorId);
+    CFDictionarySetValue(matchDictGeneric, CFSTR(kIOHIDProductIDKey), productId);
+    CFDictionarySetValue(matchDictMouse, CFSTR(kIOHIDPrimaryUsageKey), primaryUsuageIdGeneric);
+    IOHIDManagerSetDeviceMatching(HIDManagerGeneric, matchDictMouse);
     
-    IOHIDManagerRegisterDeviceMatchingCallback(HIDManager, &Handle_DeviceMatchingCallback, NULL);
-    IOHIDManagerRegisterDeviceRemovalCallback(HIDManager, &Handle_DeviceRemovalCallback, NULL);
-    //IOHIDManagerRegisterInputValueCallback(HIDManager, &Handle_DeviceInputCallback, NULL);
-    
-    IOHIDManagerScheduleWithRunLoop(HIDManager, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
-    
-    IOReturn IOReturn = IOHIDManagerOpen(HIDManager, kIOHIDOptionsTypeNone);
-    if(IOReturn){
-        NSLog(@"IOHIDManagerOpen failed.");
-    }
+    IOHIDManagerRegisterInputValueCallback(HIDManagerGeneric, &onGenericItfReceived, NULL);
+    IOHIDManagerScheduleWithRunLoop(HIDManagerGeneric, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
+    IOHIDManagerOpen(HIDManagerGeneric, kIOHIDOptionsTypeNone);
 }
 
 + (BOOL)isConnected
 {
-    return connected;
+    return mouseItfConnected;
 }
 
-+ (void)send: (char)mode
++ (void)sendMode: (char)mode
 {
-    if (connected){
-        char outCommand[] = {0x05, 0x03, mode};
-        IOReturn tIOReturn = IOHIDDeviceSetReport((void *)mouse, kIOHIDReportTypeFeature, outCommand[0], (uint8_t*)outCommand, sizeof(outCommand));
-        //printf("%x\n", tIOReturn);
+    if (mouseItfConnected){
+        char message[] = {0x05, 0x03, mode};
+        IOHIDDeviceSetReport((void *)mouseItf, kIOHIDReportTypeFeature, message[0], (uint8_t*)message, sizeof(message));
     }
 }
 
-static void Handle_DeviceMatchingCallback(void *inContext, IOReturn inResult, void *inSender, IOHIDDeviceRef deviceRef){
-    //NSLog(@"\nROCCAT device added: %p\nROCCAT device count: %ld", (void *)deviceRef, USBDeviceCount(inSender));
-    connected = true;
-    
-    mouse = deviceRef;
+static void onMouseItfConnected(void *inContext, IOReturn inResult, void *inSender, IOHIDDeviceRef deviceRef){
+    mouseItfConnected = true;
+    mouseItf = deviceRef;
     [target performSelector:updateMethod];
 }
 
-static void Handle_DeviceRemovalCallback(void *inContext, IOReturn inResult, void *inSender, IOHIDDeviceRef inIOHIDDeviceRef){
-    //NSLog(@"\nROCCAT device removed: %p\nROCCAT device count: %ld", (void *)inIOHIDDeviceRef, USBDeviceCount(inSender));
-    connected = false;
-    
+static void onMouseItfRemoved(void *inContext, IOReturn inResult, void *inSender, IOHIDDeviceRef deviceRef){
+    mouseItfConnected = false;
+    mouseItf = nil;
     [target performSelector:updateMethod];
 }
 
-static void Handle_DeviceInputCallback(void *inContext, IOReturn inResult, void *inSender, IOHIDValueRef inIOHIDValueRef){
-    //printf("%x\n", IOHIDValueGetIntegerValue(inIOHIDValueRef));
-}
-
-static long USBDeviceCount(IOHIDManagerRef HIDManager){
-    CFSetRef devSet = IOHIDManagerCopyDevices(HIDManager);
-    if(devSet) {
-        return CFSetGetCount(devSet);
-    }else{
-        return 0;
-    }
+static void onGenericItfReceived(void *inContext, IOReturn inResult, void *inSender, IOHIDValueRef valueRef){
+    [target performSelector:receiveMethod];
 }
 
 @end
